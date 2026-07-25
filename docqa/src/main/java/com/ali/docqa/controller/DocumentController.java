@@ -1,0 +1,41 @@
+package com.ali.docqa.controller;
+
+import com.ali.docqa.dto.ConfirmUploadResponse;
+import com.ali.docqa.dto.CreateUploadRequest;
+import com.ali.docqa.dto.CreateUploadResponse;
+import com.ali.docqa.service.DocumentService;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Thin HTTP layer. Translates requests into service calls and returns DTOs. No business logic here.
+ *
+ *   POST /documents            -> reserve a slot + get a presigned upload URL (request 1)
+ *   POST /documents/{id}/confirm -> mark the upload complete (request 2)
+ *
+ * The file bytes never pass through this controller — the client PUTs them straight to S3.
+ */
+@RestController
+@RequestMapping("/documents")
+public class DocumentController {
+
+    private final DocumentService documentService;
+
+    public DocumentController(DocumentService documentService) {
+        this.documentService = documentService;
+    }
+
+    @PostMapping
+    public CreateUploadResponse createUpload(@Valid @RequestBody CreateUploadRequest request) {
+        return documentService.createUpload(request.filename(), request.contentType(), request.userId());
+    }
+
+    @PostMapping("/{id}/confirm")
+    public ConfirmUploadResponse confirmUpload(@PathVariable Long id) {
+        return documentService.confirmUpload(id);
+    }
+}
