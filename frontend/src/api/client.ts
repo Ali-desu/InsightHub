@@ -15,10 +15,15 @@ async function parse<T>(res: Response): Promise<T> {
     if (res.status === 401 || res.status === 403) {
       throw new Error("Not authorized — please log in again.");
     }
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`
-    );
+    // Prefer the backend's clean { message } from the ApiError JSON body.
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body && typeof body.message === "string") message = body.message;
+    } catch {
+      /* body wasn't JSON — keep the status line */
+    }
+    throw new Error(message);
   }
   return (await res.json()) as T;
 }
