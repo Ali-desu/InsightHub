@@ -25,7 +25,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "username", nullable = false)
+    @Column(name = "username", nullable = false , unique = true)
     private String username;
 
     @Column(name="password",nullable=false)
@@ -36,5 +36,11 @@ public class User {
 
     @OneToMany(mappedBy = "user")
     private List<Document> documents;
+
+    public User(String username, String email, String passwordhash) {
+        this.username = username;
+        this.email = email;
+        this.passwordhash = passwordhash;
+    }
     
 }

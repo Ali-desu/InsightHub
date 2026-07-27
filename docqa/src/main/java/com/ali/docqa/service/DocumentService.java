@@ -18,16 +18,13 @@ import java.util.UUID;
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
-    private final UserRepository userRepository;
     private final S3Presigner s3Presigner;
     private final String bucket;
 
     public DocumentService(DocumentRepository documentRepository,
-                           UserRepository userRepository,
                            S3Presigner s3Presigner,
                            @Value("${aws.s3.bucket}") String bucket) {
         this.documentRepository = documentRepository;
-        this.userRepository = userRepository;
         this.s3Presigner = s3Presigner;
         this.bucket = bucket;
     }
@@ -52,9 +49,8 @@ public class DocumentService {
      *  Delete the throw below once you've implemented it.
      * ==========================================================================================
      */
-    public CreateUploadResponse createUpload(String filename, String contentType, Long userId) {
-        User owner = this.userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
-        String s3Key = userId + "/" + UUID.randomUUID() + "/" + filename;
+    public CreateUploadResponse createUpload(String filename, String contentType, User owner) {
+        String s3Key = owner.getId() + "/" + UUID.randomUUID() + "/" + filename;
         Document document = new Document();
         document.setS3key(s3Key);
         document.setFilename(filename);
