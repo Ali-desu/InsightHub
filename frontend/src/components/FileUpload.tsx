@@ -34,7 +34,15 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileUpload({ onAuthError }: { onAuthError?: () => void }) {
+export function FileUpload({
+  onAuthError,
+  onUploaded,
+  compact = false,
+}: {
+  onAuthError?: () => void;
+  onUploaded?: () => void;
+  compact?: boolean;
+}) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,13 +76,14 @@ export function FileUpload({ onAuthError }: { onAuthError?: () => void }) {
         const confirmed = await confirmUpload(created.documentId);
 
         patch(item.key, { phase: "done", status: confirmed.status });
+        onUploaded?.(); // tell the app to refresh the documents list
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         patch(item.key, { phase: "error", error: msg });
         if (msg.includes("Not authorized")) onAuthError?.();
       }
     },
-    [patch, onAuthError]
+    [patch, onAuthError, onUploaded]
   );
 
   const addFiles = useCallback(
@@ -100,8 +109,14 @@ export function FileUpload({ onAuthError }: { onAuthError?: () => void }) {
     [addFiles]
   );
 
+  // In compact (sidebar) mode, finished uploads disappear from here — they show up
+  // in the live Documents list instead. Only in-flight/failed items stay visible.
+  const visibleItems = compact
+    ? items.filter((it) => it.phase !== "done")
+    : items;
+
   return (
-    <div className="uploader">
+    <div className={`uploader${compact ? " uploader--compact" : ""}`}>
       <div
         className={`dropzone${dragging ? " dropzone--active" : ""}`}
         onClick={() => inputRef.current?.click()}
@@ -139,9 +154,9 @@ export function FileUpload({ onAuthError }: { onAuthError?: () => void }) {
         />
       </div>
 
-      {items.length > 0 && (
+      {visibleItems.length > 0 && (
         <ul className="filelist">
-          {items.map((it) => (
+          {visibleItems.map((it) => (
             <li key={it.key} className="fileitem">
               <div className="fileitem__row">
                 <div className="fileitem__meta">

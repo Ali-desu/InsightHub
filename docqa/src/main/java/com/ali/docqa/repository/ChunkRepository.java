@@ -1,7 +1,10 @@
 package com.ali.docqa.repository;
 
+import com.ali.docqa.dto.RetrievedChunk;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 /**
  * Data access for document_chunks — driven by plain SQL (JdbcTemplate) because pgvector's
@@ -22,6 +25,30 @@ public class ChunkRepository {
                 "INSERT INTO document_chunks (document_id, chunk_index, content, embedding) " +
                         "VALUES (?, ?, ?, ?::vector)",
                 documentId, chunkIndex, content, toVectorLiteral(embedding));
+    }
+
+    /**
+     * Find the k chunks whose embeddings are nearest (most semantically similar) to the query vector.
+     *
+     *   embedding <=> ?::vector   -> pgvector's COSINE-distance operator (matches our vector_cosine_ops
+     *                               HNSW index). Smaller = more similar.
+     *   ORDER BY distance LIMIT k -> the k closest chunks. The HNSW index makes this fast.
+     *
+     * We SELECT document_id + chunk_index too, so every hit still knows which document/position it
+     * came from — that provenance is what powers citations later.
+     */
+    public List<RetrievedChunk> search(float[] queryVector, int k) {
+        return jdbc.query(
+                "SELECT document_id, chunk_index, content, embedding <=> ?::vector AS distance " +
+                        "FROM document_chunks " +
+                        "ORDER BY distance " +
+                        "LIMIT ?",
+                (rs, rowNum) -> new RetrievedChunk(
+                        rs.getLong("document_id"),
+                        rs.getInt("chunk_index"),
+                        rs.getString("content"),
+                        rs.getDouble("distance")),
+                toVectorLiteral(queryVector), k);
     }
 
     /** float[] {0.1, 0.2, 0.3}  ->  the string "[0.1,0.2,0.3]" that pgvector understands. */

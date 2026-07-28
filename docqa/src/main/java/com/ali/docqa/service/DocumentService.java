@@ -2,16 +2,19 @@ package com.ali.docqa.service;
 
 import com.ali.docqa.dto.ConfirmUploadResponse;
 import com.ali.docqa.dto.CreateUploadResponse;
+import com.ali.docqa.dto.DocumentSummary;
+import com.ali.docqa.event.DocumentUploaded;
 import com.ali.docqa.repository.DocumentRepository;
-import com.ali.docqa.repository.UserRepository;
 import com.ali.docqa.model.Document;
 import com.ali.docqa.model.User;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -20,13 +23,16 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final S3Presigner s3Presigner;
     private final String bucket;
+    private final ApplicationEventPublisher eventPublisher;
 
     public DocumentService(DocumentRepository documentRepository,
                            S3Presigner s3Presigner,
-                           @Value("${aws.s3.bucket}") String bucket) {
+                           @Value("${aws.s3.bucket}") String bucket,
+                           ApplicationEventPublisher eventPublisher) {
         this.documentRepository = documentRepository;
         this.s3Presigner = s3Presigner;
         this.bucket = bucket;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -81,11 +87,21 @@ public class DocumentService {
      *   3. Set status = UPLOADED, save.
      *   4. return new ConfirmUploadResponse(doc.getId(), doc.getStatus().name());
      */
+    /** All of the owner's documents, newest first, as lightweight summaries for the sidebar. */
+    public List<DocumentSummary> listDocuments(User owner) {
+        return this.documentRepository.findByUserOrderByIdDesc(owner).stream()
+                .map(d -> new DocumentSummary(
+                        d.getId(), d.getFilename(), d.getStatus().name(), d.getMimetype()))
+                .toList();
+    }
+
     public ConfirmUploadResponse confirmUpload(Long documentId) {
         Document document = this.documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found"));
         document.setStatus(Document.DocumentStatus.UPLOADED);
         this.documentRepository.save(document);
+        // Upload confirmed -> kick off background ingestion (extract -> chunk -> embed -> store).
+        this.eventPublisher.publishEvent(new DocumentUploaded(document.getId()));
         return new ConfirmUploadResponse(document.getId(), document.getStatus().name());
     }
 }

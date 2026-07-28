@@ -22,6 +22,13 @@ export interface ConfirmUploadResponse {
   status: string;
 }
 
+export interface DocumentSummary {
+  id: number;
+  filename: string;
+  status: DocumentStatus;
+  mimetype: string;
+}
+
 export interface LoginRequest {
   username: string;
   password: string;
@@ -40,4 +47,21 @@ export interface RegisterRequest {
 export interface RegisterResponse {
   id: number;
   username: string;
+}
+
+// ---- Ask (RAG query) ----
+
+export interface AskRequest {
+  question: string;
+}
+
+export interface Citation {
+  documentId: number;
+  chunkIndex: number;
+  quotedText: string;
+}
+
+export interface AskResponse {
+  answer: string;
+  citations: Citation[];
 }

@@ -1,9 +1,12 @@
 import { API_BASE_URL } from "../config";
 import { getToken } from "../auth";
 import type {
+  AskRequest,
+  AskResponse,
   ConfirmUploadResponse,
   CreateUploadRequest,
   CreateUploadResponse,
+  DocumentSummary,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -68,6 +71,26 @@ export async function createUpload(
     body: JSON.stringify(body),
   });
   return parse<CreateUploadResponse>(res);
+}
+
+/** List the current user's documents (newest first) — powers the sidebar. */
+export async function listDocuments(): Promise<DocumentSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/documents`, {
+    headers: { ...authHeaders() },
+  });
+  return parse<DocumentSummary[]>(res);
+}
+
+// ---- Ask (protected — requires the JWT) ----
+
+/** Ask a question over the indexed documents; returns a cited answer. */
+export async function ask(body: AskRequest): Promise<AskResponse> {
+  const res = await fetch(`${API_BASE_URL}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return parse<AskResponse>(res);
 }
 
 /** Step 3: mark the upload complete (flips status PENDING -> UPLOADED). */
