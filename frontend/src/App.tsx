@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "./components/AuthPanel";
 import { DocumentsSidebar } from "./components/DocumentsSidebar";
 import { AskPanel } from "./components/AskPanel";
@@ -17,6 +17,7 @@ export default function App() {
     return null;
   });
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const username = token ? usernameFromToken(token) : null;
 
@@ -24,6 +25,7 @@ export default function App() {
     clearToken();
     setTokenState(null);
     setDocuments([]);
+    setSelectedIds([]);
   }, []);
 
   const loadDocuments = useCallback(async () => {
@@ -34,12 +36,11 @@ export default function App() {
     }
   }, [logout]);
 
-  // Load documents once we have a session.
   useEffect(() => {
     if (token) loadDocuments();
   }, [token, loadDocuments]);
 
-  // While anything is still indexing, poll so the sidebar status updates live.
+  // Poll while anything is still indexing so the sidebar status updates live.
   useEffect(() => {
     if (!token) return;
     const pending = documents.some((d) => !TERMINAL.has(d.status));
@@ -47,6 +48,22 @@ export default function App() {
     const id = setInterval(loadDocuments, 2500);
     return () => clearInterval(id);
   }, [token, documents, loadDocuments]);
+
+  // Drop any selected ids that no longer exist (e.g. after a reload).
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => documents.some((d) => d.id === id)));
+  }, [documents]);
+
+  const toggleDoc = useCallback((id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const scopeNames = useMemo(
+    () => documents.filter((d) => selectedIds.includes(d.id)).map((d) => d.filename),
+    [documents, selectedIds]
+  );
 
   function handleAuthenticated(newToken: string) {
     setToken(newToken);
@@ -63,13 +80,20 @@ export default function App() {
       <DocumentsSidebar
         username={username}
         documents={documents}
+        selectedIds={selectedIds}
+        onToggleDocument={toggleDoc}
         onLogout={logout}
         onUploaded={loadDocuments}
         onAuthError={logout}
       />
       <main className="workspace">
         <div className="workspace__inner">
-          <AskPanel onAuthError={logout} />
+          <AskPanel
+            selectedIds={selectedIds}
+            scopeNames={scopeNames}
+            onClearScope={() => setSelectedIds([])}
+            onAuthError={logout}
+          />
         </div>
       </main>
     </div>

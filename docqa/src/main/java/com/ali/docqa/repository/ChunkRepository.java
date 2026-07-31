@@ -4,6 +4,8 @@ import com.ali.docqa.dto.RetrievedChunk;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -28,27 +30,44 @@ public class ChunkRepository {
     }
 
     /**
-     * Find the k chunks whose embeddings are nearest (most semantically similar) to the query vector.
+     * Find the k chunks whose embeddings are nearest (most similar) to the query vector — scoped to
+     * a single user, and optionally to a chosen subset of that user's documents.
      *
-     *   embedding <=> ?::vector   -> pgvector's COSINE-distance operator (matches our vector_cosine_ops
-     *                               HNSW index). Smaller = more similar.
-     *   ORDER BY distance LIMIT k -> the k closest chunks. The HNSW index makes this fast.
+     *   JOIN documents d ... WHERE d.user_id = ?  -> TENANCY: a user can only ever retrieve chunks
+     *                                                from their OWN documents (never another user's).
+     *   AND c.document_id IN (...)                -> optional: restrict to the documents the user
+     *                                                selected in the UI. Empty/null = all their docs.
+     *   embedding <=> ?::vector                   -> pgvector cosine distance (HNSW index). Smaller = closer.
      *
-     * We SELECT document_id + chunk_index too, so every hit still knows which document/position it
-     * came from — that provenance is what powers citations later.
+     * document_id + chunk_index come back with every hit, so provenance (for citations) is preserved.
      */
-    public List<RetrievedChunk> search(float[] queryVector, int k) {
-        return jdbc.query(
-                "SELECT document_id, chunk_index, content, embedding <=> ?::vector AS distance " +
-                        "FROM document_chunks " +
-                        "ORDER BY distance " +
-                        "LIMIT ?",
+    public List<RetrievedChunk> search(float[] queryVector, int k, Long userId, List<Long> documentIds) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT c.document_id, c.chunk_index, c.content, c.embedding <=> ?::vector AS distance " +
+                        "FROM document_chunks c " +
+                        "JOIN documents d ON d.id = c.document_id " +
+                        "WHERE d.user_id = ? ");
+        List<Object> args = new ArrayList<>();
+        args.add(toVectorLiteral(queryVector));
+        args.add(userId);
+
+        if (documentIds != null && !documentIds.isEmpty()) {
+            sql.append("AND c.document_id IN (")
+                    .append(String.join(",", Collections.nCopies(documentIds.size(), "?")))
+                    .append(") ");
+            args.addAll(documentIds);
+        }
+
+        sql.append("ORDER BY distance LIMIT ?");
+        args.add(k);
+
+        return jdbc.query(sql.toString(),
                 (rs, rowNum) -> new RetrievedChunk(
                         rs.getLong("document_id"),
                         rs.getInt("chunk_index"),
                         rs.getString("content"),
                         rs.getDouble("distance")),
-                toVectorLiteral(queryVector), k);
+                args.toArray());
     }
 
     /** float[] {0.1, 0.2, 0.3}  ->  the string "[0.1,0.2,0.3]" that pgvector understands. */

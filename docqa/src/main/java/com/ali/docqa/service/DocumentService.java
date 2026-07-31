@@ -95,9 +95,14 @@ public class DocumentService {
                 .toList();
     }
 
-    public ConfirmUploadResponse confirmUpload(Long documentId) {
+    public ConfirmUploadResponse confirmUpload(Long documentId, User user) {
         Document document = this.documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+        // Ownership guard (prevents IDOR): a user may only confirm their OWN document. We return the
+        // same "not found" message rather than a 403 so we don't reveal that someone else's id exists.
+        if (!document.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Document not found");
+        }
         document.setStatus(Document.DocumentStatus.UPLOADED);
         this.documentRepository.save(document);
         // Upload confirmed -> kick off background ingestion (extract -> chunk -> embed -> store).

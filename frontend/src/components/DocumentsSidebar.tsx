@@ -37,12 +37,16 @@ function FileGlyph({ mimetype }: { mimetype: string }) {
 export function DocumentsSidebar({
   username,
   documents,
+  selectedIds,
+  onToggleDocument,
   onLogout,
   onUploaded,
   onAuthError,
 }: {
   username: string;
   documents: DocumentSummary[];
+  selectedIds: number[];
+  onToggleDocument: (id: number) => void;
   onLogout: () => void;
   onUploaded: () => void;
   onAuthError: () => void;
@@ -64,6 +68,13 @@ export function DocumentsSidebar({
           <span>Documents</span>
           <span className="side__count tabular">{documents.length}</span>
         </div>
+        {documents.length > 0 && (
+          <p className="side__hint">
+            {selectedIds.length === 0
+              ? "Click to focus questions on specific files."
+              : `Asking ${selectedIds.length} selected · click to toggle.`}
+          </p>
+        )}
 
         <ul className="doclist">
           {documents.length === 0 && (
@@ -71,17 +82,23 @@ export function DocumentsSidebar({
           )}
           {documents.map((d, i) => {
             const meta = statusMeta(d.status);
+            const selected = selectedIds.includes(d.id);
             return (
-              <li
-                key={d.id}
-                className="doc"
-                style={{ "--i": i } as React.CSSProperties}
-              >
-                <span className="doc__glyph">
-                  <FileGlyph mimetype={d.mimetype} />
-                </span>
-                <span className="doc__name">{d.filename}</span>
-                <span className={`dot dot--${meta.tone}`} title={meta.label} />
+              <li key={d.id}>
+                <button
+                  type="button"
+                  className={`doc${selected ? " doc--on" : ""}`}
+                  onClick={() => onToggleDocument(d.id)}
+                  aria-pressed={selected}
+                  title={selected ? "Click to unfocus" : "Click to focus questions on this file"}
+                  style={{ "--i": i } as React.CSSProperties}
+                >
+                  <span className="doc__glyph">
+                    <FileGlyph mimetype={d.mimetype} />
+                  </span>
+                  <span className="doc__name">{d.filename}</span>
+                  <span className={`dot dot--${meta.tone}`} title={meta.label} />
+                </button>
               </li>
             );
           })}

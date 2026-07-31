@@ -1,2 +1,5 @@
 # Personal learning notes — kept local, not part of the shipped project
 LEARNING_GUIDE.md
+
+# Docker Compose secrets (real values live only here; template is .env.example)
+.env

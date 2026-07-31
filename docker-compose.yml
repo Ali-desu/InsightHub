@@ -1,0 +1,52 @@
+# Full stack: Postgres+pgvector, Spring Boot backend, nginx-served React frontend.
+#
+#   1. cp .env.example .env   and fill in your secrets
+#   2. docker compose up --build
+#   3. open http://localhost:8081
+#
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: docqa
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: docqa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docqa -d docqa"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build: ./docqa
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Spring picks these up via relaxed binding (overrides application.properties).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/docqa
+      SPRING_DATASOURCE_USERNAME: docqa
+      SPRING_DATASOURCE_PASSWORD: password
+      # Secrets — supplied from .env (never baked into the image).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID in .env}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY in .env}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    depends_on:
+      - backend
+    ports:
+      - "8081:80"
+
+volumes:
+  pgdata:

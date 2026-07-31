@@ -48,7 +48,8 @@ public class DocumentController {
     }
 
     @PostMapping("/{id}/confirm")
-    public ConfirmUploadResponse confirmUpload(@PathVariable Long id) {
-        return documentService.confirmUpload(id);
+    public ConfirmUploadResponse confirmUpload(@PathVariable Long id,
+                                               @AuthenticationPrincipal User user) {
+        return documentService.confirmUpload(id, user);
     }
 }

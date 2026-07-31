@@ -10,7 +10,17 @@ const SUGGESTIONS = [
   "How does the ingestion pipeline work?",
 ];
 
-export function AskPanel({ onAuthError }: { onAuthError?: () => void }) {
+export function AskPanel({
+  selectedIds,
+  scopeNames,
+  onClearScope,
+  onAuthError,
+}: {
+  selectedIds: number[];
+  scopeNames: string[];
+  onClearScope: () => void;
+  onAuthError?: () => void;
+}) {
   const [question, setQuestion] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<AskResponse | null>(null);
@@ -24,7 +34,10 @@ export function AskPanel({ onAuthError }: { onAuthError?: () => void }) {
     setError(null);
     setResult(null);
     try {
-      const res = await ask({ question: trimmed });
+      const res = await ask({
+        question: trimmed,
+        documentIds: selectedIds.length ? selectedIds : undefined,
+      });
       setResult(res);
       setStatus("answered");
     } catch (e) {
@@ -52,6 +65,24 @@ export function AskPanel({ onAuthError }: { onAuthError?: () => void }) {
         <p className="ask__subtitle">
           Answers are grounded in your uploaded files and cite the exact passages they came from.
         </p>
+      </div>
+
+      <div className="scope">
+        <span className="scope__label">Scope</span>
+        {scopeNames.length === 0 ? (
+          <span className="scope__all">All documents</span>
+        ) : (
+          <>
+            {scopeNames.map((name) => (
+              <span className="scope__chip" key={name} title={name}>
+                {name}
+              </span>
+            ))}
+            <button type="button" className="scope__clear" onClick={onClearScope}>
+              Clear
+            </button>
+          </>
+        )}
       </div>
 
       <form

@@ -53,6 +53,8 @@ export interface RegisterResponse {
 
 export interface AskRequest {
   question: string;
+  /** Optional: restrict the search to these document ids. Omit/empty = all the user's documents. */
+  documentIds?: number[];
 }
 
 export interface Citation {
