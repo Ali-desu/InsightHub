@@ -89,14 +89,10 @@ Done:
 - [x] Presigned S3 upload + confirm flow, document metadata in Postgres
 - [x] React frontend (auth + upload UI)
 - [x] pgvector storage + Bedrock (Titan) embeddings
-
-In progress:
-- [ ] Ingestion pipeline (text extraction → chunking → embedding → store)
-- [ ] Question-answering endpoint (retrieve → prompt → cited answer)
+- [x] Ingestion pipeline (text extraction → chunking → embedding → store)
+- [x] Question-answering endpoint (retrieve → prompt → cited answer)
 
 Planned:
-- [ ] Async ingestion via a message queue
-- [ ] Schema migrations (Flyway)
 - [ ] Deployment (containerised, on AWS)
 
 ## Notes
